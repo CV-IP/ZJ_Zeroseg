@@ -20,6 +20,7 @@ from trainer import Trainer
 from zeroseg_dataload import RescaleT, RandomCrop, ToTensorLab
 from torchvision import transforms
 from libs.zeroseg_dataload.dataloader import dataloader as zeroseg_dataloader
+from libs.metric.mSA_test import db_eval_iou_multi as eval_iou
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -27,9 +28,9 @@ def parse_args():
     parser.add_argument('--experimentid', default='0', help='model name/save dir')
     parser.add_argument('--resume_from', type=int, default=0, help='continue train(>0) or train from scratch/val(<=0)')
     parser.add_argument('--schedule', default='step1', help='[step1/mixed/st/st_mixed] schedule method for training (omitted in val)')
-    parser.add_argument('--init_model', default=None, help='overwrite <init_model> in the config file if not none')
-    parser.add_argument('--val', action='store_false', help='only do validation if set True')
-    parser.add_argument('--test', action='store_false', help='do test if set True')
+    parser.add_argument('--init_model', default='./trained_models/deeplabv2_resnet101_init.pth', help='overwrite <init_model> in the config file if not none')
+    parser.add_argument('--val', action='store_test', help='only do validation if set True')
+    parser.add_argument('--test', action='store_test', help='do test if set True')
     parser.add_argument('--multigpus', action='store_false', help='use multiple GPUs or single GPU')
     parser.add_argument('--ngpu', type=int, default=2, help='number of GPUs to be used if multigpus is Ture, GPU id otherwise')
 

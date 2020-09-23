@@ -30,7 +30,7 @@ class dataloader(data.Dataset):
 			self.data_img_path = os.path.join(root_path, 'train/image')
 			self.data_label_path = os.path.join(root_path, 'train/seg_img')
 			self.transform = tf.Compose([tf.MaskRandResizedCrop(resize, 0.9, 1.0), \
-										 tf.MaskHFlip(), \
+										 # tf.MaskHFlip(), \
 										 # tf.MaskColourJitter(p=1.0), \
 										 # tf.MaskNormalise((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)), \
 										 tf.MaskNormalise((0, 0, 0), (1, 1, 1)), \
@@ -59,10 +59,11 @@ class dataloader(data.Dataset):
 			return self.testdata_getitem(i)
 
 
-	def traindata_getitem(self, i):
-		cur_img_name = self.all_img_names[i]
+	def traindata_getitem(self, index):
+		cur_img_name = self.all_img_names[index]
 		img_path = os.path.join(self.data_img_path, cur_img_name)
 		img = cv2.imread(img_path, 1)
+		img = img[...,::-1].copy()
 
 		cur_mask_name_list = self.train_dict[cur_img_name]
 		num_obj = len(cur_mask_name_list)
@@ -85,7 +86,7 @@ class dataloader(data.Dataset):
 		ignore_mask = ignore_mask > 1
 		label[np.where(ignore_mask)] = 255
 
-		label = cv2.resize(label, dsize=(img.shape[0], img.shape[1]), interpolation=cv2.INTER_NEAREST)
+		label = cv2.resize(label, dsize=(img.shape[1], img.shape[0]), interpolation=cv2.INTER_NEAREST)
 
 		img, label = Image.fromarray(img), Image.fromarray(label)
 
@@ -93,6 +94,15 @@ class dataloader(data.Dataset):
 			img, label = self.transform(img, label)
 		label = label.squeeze(0)
 		label[label == 0] = 255
+
+		#Visualization
+		# label_numpy = np.uint8((label.unsqueeze(2).repeat(1, 1, 3).cpu().numpy()))
+		# label_PIL = Image.fromarray(label_numpy)
+		# label_PIL.show()
+		# img_numpy = np.uint8((img.permute(1, 2, 0).cpu().numpy()*255))
+		# img_numpy[label_numpy != 255] = 255
+		# img_PIL = Image.fromarray(img_numpy)
+		# img_PIL.show()
 
 		return img.double(), label.long()
 
@@ -108,7 +118,7 @@ class dataloader(data.Dataset):
 		return img.float()
 
 if __name__ == '__main__':
-	d = dataloader(train=False)
+	d = dataloader(train=True)
 	img = d[1]
 	print(img.shape)
 

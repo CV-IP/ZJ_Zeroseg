@@ -109,7 +109,7 @@ top_p: 10                          # retain top_p category indices with the high
 ## initialization ##
 init: kaiming                      # initialization [gaussian/kaiming/xavier/orthogonal]
 init_model: ./trained_models/deeplabv2_resnet101_init.pth
-  #init_model: ./trained_models/voc12_ourbest.pth
+#init_model: ./trained_models/voc12_ourbest.pth
 
 ## layers ##
 gen:
