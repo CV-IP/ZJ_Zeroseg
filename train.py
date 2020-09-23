@@ -11,6 +11,7 @@ import operator
 import argparse
 import numpy as np
 import torch
+import torchvision.transforms.functional as F
 from PIL import Image
 
 from tools import get_embedding, get_split, get_config, logWritter, MeaninglessError, scores_gzsl, Step_Scheduler, Const_Scheduler, construct_gt_st
@@ -29,8 +30,8 @@ def parse_args():
     parser.add_argument('--resume_from', type=int, default=0, help='continue train(>0) or train from scratch/val(<=0)')
     parser.add_argument('--schedule', default='step1', help='[step1/mixed/st/st_mixed] schedule method for training (omitted in val)')
     parser.add_argument('--init_model', default='./trained_models/deeplabv2_resnet101_init.pth', help='overwrite <init_model> in the config file if not none')
-    parser.add_argument('--val', action='store_test', help='only do validation if set True')
-    parser.add_argument('--test', action='store_test', help='do test if set True')
+    parser.add_argument('--val', action='store_false', help='only do validation if set True')
+    parser.add_argument('--test', action='store_true', help='do test if set True')
     parser.add_argument('--multigpus', action='store_false', help='use multiple GPUs or single GPU')
     parser.add_argument('--ngpu', type=int, default=2, help='number of GPUs to be used if multigpus is Ture, GPU id otherwise')
 
@@ -231,7 +232,7 @@ def main():
         count = 1
         while True:
             try:
-                data_test = next(loader_iter_test) # torch.double with shape (N,H,W)
+                data_test = next(loader_iter_test)
             except:
                 break # finish test
 
@@ -246,60 +247,38 @@ def main():
                 pred_cls_PIL = Image.fromarray(pred_cls_numpy)
                 pred_cls_PIL = pred_cls_PIL.convert('L')
                 print(np.unique(pred_cls_numpy))
-                # pred_cls_PIL.show()
                 print(count)
                 count += 1
-
-
 
     elif args.val and not args.test:
         """
         Only do validation
         """
-        loader_iter_test = iter(loader_test)
-        targets, outputs = [], []
-
+        loader_iter_val = iter(loader)
+        count = 1
         while True:
             try:
-                data_test, gt_test, image_id = next(loader_iter_test) # gt_test: torch.LongTensor with shape (N,H,W). elements: 0-19,255 in voc12
+                data_val, gt = next(loader_iter_val)
             except:
                 break # finish test
-
-            data_test = torch.Tensor(data_test).to(device)
-
+            data_val = torch.Tensor(data_val).to(device)
             with torch.no_grad():
                 try:
-                    test_res = trainer.val(data_test, gt_test, multigpus=args.multigpus)
+                    pred_cls = trainer.test(data_val, multigpus=args.multigpus)
                 except MeaninglessError:
                     continue # skip meaningless batch
+                pred_cls_numpy = pred_cls.squeeze().cpu().float().numpy()
+                pred_cls_PIL = Image.fromarray(pred_cls_numpy)
+                label = gt.cpu().numpy()
+                pred_cls_resize = F.resized_crop(pred_cls_PIL, 0, 0, pred_cls_numpy.shape[0], pred_cls_numpy.shape[1],
+                                                 (label.shape[1], label.shape[2]), Image.NEAREST)
+                pred_cls_resize = np.array(pred_cls_resize)[np.newaxis, :, :]
 
-                pred_cls_test = test_res['pred_cls_real'].cpu() # torch.LongTensor with shape (N,H',W'). elements: 0-20 in voc12
-                resized_gt_test = test_res['resized_gt'].cpu() # torch.LongTensor with shape (N,H',W'). elements: 0-19,255 in voc12
+                # label = np.array([[1,1,2], [1,1,2], [0,0,2]])[np.newaxis,:,:]
+                # pred_cls_resize = np.array([[0,1,1], [1,1,2], [0,2,2]])[np.newaxis,:,:]
+                iou = eval_iou(label, pred_cls_resize)
+                print(iou)
 
-                ##### gt mapping to target #####
-                resized_target =  cls_map_test[resized_gt_test]
-
-            for o, t in zip(pred_cls_test.numpy(), resized_target):
-                outputs.append(o)
-                targets.append(t)
-
-        score, class_iou = scores_gzsl(targets, outputs, n_class=len(visible_classes_test), seen_cls=cls_map_test[vals_cls], unseen_cls=cls_map_test[valu_cls])
-
-        print("Val results:")
-        logger.write("Val results:")
-
-        for k, v in score.items():
-            print(k + ': ' + json.dumps(v))
-            logger.write(k + ': ' + json.dumps(v))
-
-        score["Class IoU"] = {}
-        for i in range(len(visible_classes_test)):
-            score["Class IoU"][all_labels[visible_classes_test[i]]] = class_iou[i]
-        print("Class IoU: " + json.dumps(score["Class IoU"]))
-        logger.write("Class IoU: " + json.dumps(score["Class IoU"]))
-
-        print("Val finished.\n\n")
-        logger.write("Val finished.\n\n")
 
     else:
         """

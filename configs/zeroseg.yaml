@@ -4,7 +4,7 @@
 
 ## loader ##
 BATCH_SIZE:
-  TRAIN: 2
+  TRAIN: 1
   TEST: 1
 SPLIT:
   TRAIN: train

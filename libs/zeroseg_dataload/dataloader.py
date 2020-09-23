@@ -93,7 +93,7 @@ class dataloader(data.Dataset):
 		if self.transform:
 			img, label = self.transform(img, label)
 		label = label.squeeze(0)
-		label[label == 0] = 255
+		# label[label == 0] = 255
 
 		#Visualization
 		# label_numpy = np.uint8((label.unsqueeze(2).repeat(1, 1, 3).cpu().numpy()))
@@ -104,7 +104,7 @@ class dataloader(data.Dataset):
 		# img_PIL = Image.fromarray(img_numpy)
 		# img_PIL.show()
 
-		return img.double(), label.long()
+		return img.float(), label.long()
 
 	def testdata_getitem(self, i):
 		cur_img_name = self.data_img_names[i]
