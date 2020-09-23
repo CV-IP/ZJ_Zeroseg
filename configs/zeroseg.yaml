@@ -40,7 +40,7 @@ emb_without_normal: False          # whether not to normalize semantic word embe
 ## intervals ##
 display_interval: 10               # how often(iter) to display outputs on screen
 log_interval: 100                  # how often(iter) to log the training status
-snapshot: 2000000                     # how often(iter) to save the trained models
+snapshot: 20                     # how often(iter) to save the trained models
 snapshot1: 10000
 
 

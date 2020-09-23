@@ -143,7 +143,7 @@ class GANLoss(nn.Module):
         
         self.Tensor = tensor
         if use_l1:
-            self.loss = nn.L1Loss(reduce=False)
+            self.loss = nn.L1Loss(reduction='mean')
         else:
             self.loss = nn.BCELoss(reduce=False)
 

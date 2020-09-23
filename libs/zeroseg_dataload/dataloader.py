@@ -13,20 +13,20 @@ from PIL import Image
 class dataloader(data.Dataset):
 	def __init__(self, obj_npy_path='/home/liuyuting/Code/CaGNet_game/dataset/zeroseg/obj_id.npy',
 				 train_npy_path='/home/liuyuting/Code/CaGNet_game/dataset/zeroseg/train_dist.npy',
-                 root_path='/media/adminer/data/zhijiang_zeroseg/', train=True, resize=384):
+                 root_path='/media/adminer/data/zhijiang_zeroseg/', mode='train', resize=384):
 
 		self.obj_npy_path = obj_npy_path
 		self.train_npy_path = train_npy_path
 
 		self.obj_dict = np.load(self.obj_npy_path, allow_pickle=True).item()
 		self.train_dict = np.load(self.train_npy_path, allow_pickle=True).item()
-		self.trainflag = train
+		self.trainflag = mode
 
 		self.all_img_names = []
 		for img_names in self.train_dict:
 			self.all_img_names.append(img_names)
 
-		if train:
+		if mode == 'train' or mode == 'val':
 			self.data_img_path = os.path.join(root_path, 'train/image')
 			self.data_label_path = os.path.join(root_path, 'train/seg_img')
 			self.transform = tf.Compose([tf.MaskRandResizedCrop(resize, 0.9, 1.0), \
@@ -36,6 +36,12 @@ class dataloader(data.Dataset):
 										 tf.MaskNormalise((0, 0, 0), (1, 1, 1)), \
 										 tf.MaskToTensor()
 										 ])
+			self.val_img_names, self.train_img_names = self.all_img_names[:2000], self.all_img_names[2000:]
+			if mode == 'train':
+				self.img_names = self.train_img_names
+			else:
+				self.img_names = self.val_img_names
+
 		else:
 			self.data_img_path = os.path.join(root_path, 'test/image')
 			self.data_img_names = os.listdir(self.data_img_path)
@@ -47,20 +53,24 @@ class dataloader(data.Dataset):
 
 
 	def __len__(self):
-		if self.trainflag:
-			return len(self.all_img_names)
-		else:
+		if self.trainflag == 'train':
+			return len(self.train_img_names)
+		elif self.trainflag == 'val':
+			return len(self.val_img_names)
+		elif self.trainflag == 'test':
 			return len(self.data_img_names)
+		else:
+			raise
 
 	def __getitem__(self, i):
-		if self.trainflag:
+		if self.trainflag == 'train' or self.trainflag == 'val':
 			return self.traindata_getitem(i)
 		else:
 			return self.testdata_getitem(i)
 
 
 	def traindata_getitem(self, index):
-		cur_img_name = self.all_img_names[index]
+		cur_img_name = self.img_names[index]
 		img_path = os.path.join(self.data_img_path, cur_img_name)
 		img = cv2.imread(img_path, 1)
 		img = img[...,::-1].copy()

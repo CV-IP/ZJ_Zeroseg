@@ -178,7 +178,7 @@ def main():
     Loader train data
     """
     dataset = zeroseg_dataloader(obj_npy_path='./dataset/zeroseg/obj_id.npy', train_npy_path='./dataset/zeroseg/train_dist.npy',
-                 root_path='/media/adminer/data/zhijiang_zeroseg/', train=True)
+                 root_path='/media/adminer/data/zhijiang_zeroseg/', mode='train')
 
     loader = torch.utils.data.DataLoader(
         dataset=dataset,
@@ -186,11 +186,22 @@ def main():
         num_workers=config['NUM_WORKERS'],
         shuffle=True
     )
+    """
+    Loader val data
+    """
+    dataset_val = zeroseg_dataloader(obj_npy_path='./dataset/zeroseg/obj_id.npy', train_npy_path='./dataset/zeroseg/train_dist.npy',
+                                 root_path='/media/adminer/data/zhijiang_zeroseg/', mode='val')
+    loader_val = torch.utils.data.DataLoader(
+        dataset=dataset_val,
+        batch_size=config['BATCH_SIZE']['TEST'],
+        num_workers=config['NUM_WORKERS'],
+        shuffle=False
+    )
 
     """
     Loader test data
     """
-    dataset_test = zeroseg_dataloader(root_path='/media/adminer/data/zhijiang_zeroseg/', train=False)
+    dataset_test = zeroseg_dataloader(root_path='/media/adminer/data/zhijiang_zeroseg/', mode='test')
     loader_test = torch.utils.data.DataLoader(
         dataset=dataset_test,
         batch_size=config['BATCH_SIZE']['TEST'],
@@ -229,7 +240,6 @@ def main():
         Only do test
         """
         loader_iter_test = iter(loader_test)
-        count = 1
         while True:
             try:
                 data_test = next(loader_iter_test)
@@ -247,15 +257,13 @@ def main():
                 pred_cls_PIL = Image.fromarray(pred_cls_numpy)
                 pred_cls_PIL = pred_cls_PIL.convert('L')
                 print(np.unique(pred_cls_numpy))
-                print(count)
-                count += 1
 
     elif args.val and not args.test:
         """
         Only do validation
         """
-        loader_iter_val = iter(loader)
-        count = 1
+        loader_iter_val = iter(loader_val)
+        count, total_iou, iou = 0, 0, 0
         while True:
             try:
                 data_val, gt = next(loader_iter_val)
@@ -277,7 +285,12 @@ def main():
                 # label = np.array([[1,1,2], [1,1,2], [0,0,2]])[np.newaxis,:,:]
                 # pred_cls_resize = np.array([[0,1,1], [1,1,2], [0,2,2]])[np.newaxis,:,:]
                 iou = eval_iou(label, pred_cls_resize)
-                print(iou)
+                total_iou += iou
+                print(f"current mSA: {iou}")
+            count += 1
+            # print(iou)
+        total_iou = total_iou / count
+        print(f"Seen Class mSA: {total_iou}")
 
 
     else:
@@ -417,53 +430,40 @@ def main():
 
             # Test the saved model
             if (iteration + 1) % config['snapshot'] == 0:
-                print("Testing model of Iter - [{0:0>6d}] ...".format(iteration + 1))
-                logger.write("Testing model of Iter - [{0:0>6d}] ...".format(iteration + 1))
+                print("Validing model of Iter - [{0:0>6d}] ...".format(iteration + 1))
+                logger.write("Validing model of Iter - [{0:0>6d}] ...".format(iteration + 1))
 
-                loader_iter_test = iter(loader_test)
-                targets, outputs = [], []
-
+                loader_iter_val = iter(loader_val)
+                count, total_iou = 0, 0
                 while True:
                     try:
-                        data_test, gt_test,image_id = next(loader_iter_test) # gt_test: torch.LongTensor with shape (N,H,W). elements: 0-19,255 in voc12
+                        data_val, gt = next(loader_iter_val)
                     except:
                         break # finish test
-
-                    data_test = torch.Tensor(data_test).to(device)
-
+                    data_val = torch.Tensor(data_val).to(device)
                     with torch.no_grad():
                         try:
-                            test_res = trainer.val(data_test, gt_test, multigpus=args.multigpus)
+                            pred_cls = trainer.test(data_val, multigpus=args.multigpus)
                         except MeaninglessError:
                             continue # skip meaningless batch
+                        pred_cls_numpy = pred_cls.squeeze().cpu().float().numpy()
+                        pred_cls_PIL = Image.fromarray(pred_cls_numpy)
+                        label = gt.cpu().numpy()
+                        pred_cls_resize = F.resized_crop(pred_cls_PIL, 0, 0, pred_cls_numpy.shape[0], pred_cls_numpy.shape[1],
+                                                         (label.shape[1], label.shape[2]), Image.NEAREST)
+                        pred_cls_resize = np.array(pred_cls_resize)[np.newaxis, :, :]
+                        total_iou += eval_iou(label, pred_cls_resize)
+                        count += 1
+                        # print(iou)
+                total_iou = total_iou / count
+                print("Val results:")
+                logger.write("Val results:")
 
-                        pred_cls_test = test_res['pred_cls_real'].cpu() # torch.LongTensor with shape (N,H',W'). elements: 0-20 in voc12
-                        resized_gt_test = test_res['resized_gt'].cpu() # torch.LongTensor with shape (N,H',W'). elements: 0-19,255 in voc12
+                print(f"Seen Class IoU: {total_iou}")
+                logger.write(f"Seen Class IoU: {total_iou}")
 
-                        ##### gt mapping to target #####
-                        resized_target = cls_map_test[resized_gt_test]
-
-                    for o, t in zip(pred_cls_test.numpy(), resized_target):
-                        outputs.append(o)
-                        targets.append(t)
-
-                score, class_iou = scores_gzsl(targets, outputs, n_class=len(visible_classes_test), seen_cls=cls_map_test[vals_cls], unseen_cls=cls_map_test[valu_cls])
-
-                print("Test results:")
-                logger.write("Test results:")
-
-                for k, v in score.items():
-                    print(k + ': ' + json.dumps(v))
-                    logger.write(k + ': ' + json.dumps(v))
-
-                score["Class IoU"] = {}
-                for i in range(len(visible_classes_test)):
-                    score["Class IoU"][all_labels[visible_classes_test[i]]] = class_iou[i]
-                print("Class IoU: " + json.dumps(score["Class IoU"]))
-                logger.write("Class IoU: " + json.dumps(score["Class IoU"]))
-
-                print("Test finished.\n")
-                logger.write("Test finished.\n")
+                print("Val finished.\n")
+                logger.write("Val finished.\n")
 
             step_scheduler.step()
 

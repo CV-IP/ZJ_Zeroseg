@@ -112,9 +112,9 @@ class DeepLabV2_local(nn.Sequential):
         h2 = h2 * f1[:,1,:,:].unsqueeze(1)
         h3 = h3 * f1[:,2,:,:].unsqueeze(1)
         h1 = self.contextualpool(torch.cat([h1, h2, h3], dim=1))
-        localmu = F.interpolate(self.contextuallocalmu(h1), size=h.size()[2:], mode="bilinear")
-        localsigma = F.interpolate(self.contextuallocalsigma(h1), size=h.size()[2:], mode="bilinear")
-        h1 = F.interpolate(self.reparameterize(localmu, localsigma), size=h.size()[2:], mode="bilinear") # contextual latent code      
+        localmu = F.interpolate(self.contextuallocalmu(h1), size=h.size()[2:], mode="bilinear", align_corners=False)
+        localsigma = F.interpolate(self.contextuallocalsigma(h1), size=h.size()[2:], mode="bilinear", align_corners=False)
+        h1 = F.interpolate(self.reparameterize(localmu, localsigma), size=h.size()[2:], mode="bilinear", align_corners=False) # contextual latent code
         att = torch.sigmoid(h1)
         h_att = torch.mul(h, att)
         h0 = torch.sigmoid(h + h_att) # augmented feature X_n
