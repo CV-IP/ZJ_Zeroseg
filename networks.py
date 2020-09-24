@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from resnet import _ConvBatchNormReLU, _ResBlock
 from blocks import LinearBlock, Conv2dBlock, ResBlocks, ActFirstResBlock, _ASPPModule, _ConvReLU_
+from modeling.resnet101 import ResNet101
 
 class MSCC(nn.Module):
     """Multi-scale inputs"""
@@ -67,21 +68,26 @@ class DeepLabV2_local(nn.Sequential):
     def __init__(self, n_classes, n_blocks, pyramids, freeze_bn):
         super(DeepLabV2_local, self).__init__()
 
-        self.add_module(
-            "layer1",
-            nn.Sequential(
-                OrderedDict(
-                    [
-                        ("conv1", _ConvBatchNormReLU(3, 64, 7, 2, 3, 1)),
-                        ("pool", nn.MaxPool2d(3, 2, 1, ceil_mode=True)),
-                    ]
-                )
-            )
-        )
-        self.add_module("layer2", _ResBlock(n_blocks[0], 64, 64, 256, 1, 1))
-        self.add_module("layer3", _ResBlock(n_blocks[1], 256, 128, 512, 2, 1))
-        self.add_module("layer4", _ResBlock(n_blocks[2], 512, 256, 1024, 1, 2))
-        self.add_module("layer5", _ResBlock(n_blocks[3], 1024, 512, 2048, 1, 4))
+        self.backbone = ResNet101(8, nn.BatchNorm2d)
+
+
+
+        # self.add_module(
+        #     "layer1",
+        #     nn.Sequential(
+        #         OrderedDict(
+        #             [
+        #                 ("conv1", _ConvBatchNormReLU(3, 64, 7, 2, 3, 1)),
+        #                 ("pool", nn.MaxPool2d(3, 2, 1, ceil_mode=True)),
+        #             ]
+        #         )
+        #     )
+        # )
+        # self.add_module("layer2", _ResBlock(n_blocks[0], 64, 64, 256, 1, 1))
+        # self.add_module("layer3", _ResBlock(n_blocks[1], 256, 128, 512, 2, 1))
+        # self.add_module("layer4", _ResBlock(n_blocks[2], 512, 256, 1024, 1, 2))
+        # self.add_module("layer5", _ResBlock(n_blocks[3], 1024, 512, 2048, 1, 4))
+
         self.add_module("aspp", _ASPPModule(2048, n_classes, pyramids))
 
         self.add_module("contextual1", _ConvReLU_(n_classes, 256, 3, 1, 1, 1))
@@ -96,11 +102,12 @@ class DeepLabV2_local(nn.Sequential):
             self.freeze_bn()
 
     def forward(self, x, mask=None):
-        h = self.layer1(x)
-        h = self.layer2(h)
-        h = self.layer3(h)
-        h = self.layer4(h)
-        h = self.layer5(h)
+        # h = self.layer1(x)
+        # h = self.layer2(h)
+        # h = self.layer3(h)
+        # h = self.layer4(h)
+        # h = self.layer5(h)
+        h = self.backbone(x)
         h = self.aspp(h)
 
         # Contextual Module

@@ -18,7 +18,6 @@ from tools import get_embedding, get_split, get_config, logWritter, MeaninglessE
 from libs.datasets import get_dataset
 from trainer import Trainer
 # from zeroseg_dataload import dataloader as zeroseg_dataloader
-from zeroseg_dataload import RescaleT, RandomCrop, ToTensorLab
 from torchvision import transforms
 from libs.zeroseg_dataload.dataloader import dataloader as zeroseg_dataloader
 from libs.metric.mSA_test import db_eval_iou_multi as eval_iou
@@ -29,8 +28,8 @@ def parse_args():
     parser.add_argument('--experimentid', default='0', help='model name/save dir')
     parser.add_argument('--resume_from', type=int, default=0, help='continue train(>0) or train from scratch/val(<=0)')
     parser.add_argument('--schedule', default='step1', help='[step1/mixed/st/st_mixed] schedule method for training (omitted in val)')
-    parser.add_argument('--init_model', default='./trained_models/deeplabv2_resnet101_init.pth', help='overwrite <init_model> in the config file if not none')
-    parser.add_argument('--val', action='store_false', help='only do validation if set True')
+    parser.add_argument('--init_model', default='none', help='overwrite <init_model> in the config file if not none')
+    parser.add_argument('--val', action='store_true', help='only do validation if set True')
     parser.add_argument('--test', action='store_true', help='do test if set True')
     parser.add_argument('--multigpus', action='store_false', help='use multiple GPUs or single GPU')
     parser.add_argument('--ngpu', type=int, default=2, help='number of GPUs to be used if multigpus is Ture, GPU id otherwise')
@@ -286,11 +285,11 @@ def main():
                 # pred_cls_resize = np.array([[0,1,1], [1,1,2], [0,2,2]])[np.newaxis,:,:]
                 iou = eval_iou(label, pred_cls_resize)
                 total_iou += iou
-                print(f"current mSA: {iou}")
+                print(f"Current Seen Class mSA: {iou}")
             count += 1
             # print(iou)
         total_iou = total_iou / count
-        print(f"Seen Class mSA: {total_iou}")
+        print(f"Total Seen Class mSA: {total_iou}")
 
 
     else:
@@ -456,14 +455,14 @@ def main():
                         count += 1
                         # print(iou)
                 total_iou = total_iou / count
-                print("Val results:")
-                logger.write("Val results:")
+                print("Valid results:")
+                logger.write("Valid results:")
 
                 print(f"Seen Class IoU: {total_iou}")
                 logger.write(f"Seen Class IoU: {total_iou}")
 
-                print("Val finished.\n")
-                logger.write("Val finished.\n")
+                print("Valid finished.\n")
+                logger.write("Valid finished.\n")
 
             step_scheduler.step()
 

@@ -272,13 +272,15 @@ class Trainer(nn.Module):
         Weight initialization
         """
         self.apply(weights_init(self.cfg['init']))
-
         if self.cfg['init_model'] != 'none':
-            state_dict = torch.load(self.cfg['init_model'])
-            if 'state_dict' in state_dict.keys():
-                self.model.load_state_dict(state_dict['state_dict'])
+            if '.tar' in self.cfg['init_model']:
+                self.model.back.scale.backbone._load_pretrained_model(self.cfg['init_model'])
             else:
-                self.model.load_state_dict(state_dict, strict=False)
+                state_dict = torch.load(self.cfg['init_model'])
+                if 'state_dict' in state_dict.keys():
+                    self.model.load_state_dict(state_dict['state_dict'])
+                else:
+                    self.model.load_state_dict(state_dict, strict=False)
 
         """
         lr scheduler

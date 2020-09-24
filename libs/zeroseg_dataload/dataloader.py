@@ -36,7 +36,7 @@ class dataloader(data.Dataset):
 										 tf.MaskNormalise((0, 0, 0), (1, 1, 1)), \
 										 tf.MaskToTensor()
 										 ])
-			self.val_img_names, self.train_img_names = self.all_img_names[:2000], self.all_img_names[2000:]
+			self.val_img_names, self.train_img_names = self.all_img_names[:500], self.all_img_names[500:]
 			if mode == 'train':
 				self.img_names = self.train_img_names
 			else:

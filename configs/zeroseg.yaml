@@ -4,7 +4,7 @@
 
 ## loader ##
 BATCH_SIZE:
-  TRAIN: 1
+  TRAIN: 2
   TEST: 1
 SPLIT:
   TRAIN: train
@@ -40,7 +40,7 @@ emb_without_normal: False          # whether not to normalize semantic word embe
 ## intervals ##
 display_interval: 10               # how often(iter) to display outputs on screen
 log_interval: 100                  # how often(iter) to log the training status
-snapshot: 20                     # how often(iter) to save the trained models
+snapshot: 1000                       # how often(iter) to save the trained models
 snapshot1: 10000
 
 
@@ -108,8 +108,8 @@ top_p: 10                          # retain top_p category indices with the high
 
 ## initialization ##
 init: kaiming                      # initialization [gaussian/kaiming/xavier/orthogonal]
-init_model: ./trained_models/deeplabv2_resnet101_init.pth
-#init_model: ./trained_models/voc12_ourbest.pth
+#init_model: ./trained_models/deeplabv2_resnet101_init.pth
+init_model: ./trained_models/resnet101_imagenet.tar
 
 ## layers ##
 gen:
